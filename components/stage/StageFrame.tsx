@@ -1,0 +1,263 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import {
+  Keyboard,
+  Maximize2,
+  Minimize2,
+  Settings,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
+import { getFontCss } from "@/lib/defaults";
+import type { ContestSettings } from "@/lib/types";
+
+interface StageFrameProps {
+  settings: ContestSettings;
+  children: React.ReactNode;
+  preview?: boolean;
+  topLeft?: React.ReactNode;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  showShortcuts?: boolean;
+  onToggleShortcuts?: () => void;
+  realtimeConnected?: boolean;
+}
+
+export function StageFrame({
+  settings,
+  children,
+  preview = false,
+  topLeft,
+  soundEnabled = true,
+  onToggleSound,
+  isFullscreen = false,
+  onToggleFullscreen,
+  showShortcuts = false,
+  onToggleShortcuts,
+  realtimeConnected = false,
+}: StageFrameProps) {
+  const hasBgImage =
+    settings.background_mode === "image" && Boolean(settings.background_url);
+  const overlayAlpha = Math.min(85, Math.max(0, settings.overlay_opacity)) / 100;
+
+  return (
+    <div
+      className={`relative w-full overflow-hidden flex flex-col select-none ${
+        preview ? "h-full" : "min-h-screen h-screen"
+      }`}
+      style={{
+        backgroundColor: settings.bg_color,
+        color: settings.text_color,
+        fontFamily: getFontCss(settings.body_font),
+      }}
+    >
+      {/* Lớp nền ảnh hoặc Gradient công nghệ mặc định */}
+      {hasBgImage ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={settings.background_url ?? ""}
+            alt="Hình nền sân khấu"
+            className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none transition-colors duration-300"
+            style={{
+              backgroundColor: `rgba(0, 0, 0, ${overlayAlpha})`,
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 18% 18%, ${settings.accent_color}38 0%, transparent 48%), radial-gradient(circle at 82% 82%, ${settings.slogan_color}28 0%, transparent 48%), linear-gradient(135deg, ${settings.bg_color} 0%, #020817 100%)`,
+            }}
+          />
+          <div className="stage-grid-overlay absolute inset-0 pointer-events-none opacity-65" />
+          <div
+            className="animate-stage-glow absolute -top-24 left-1/2 -translate-x-1/2 h-72 w-[62%] rounded-full blur-3xl pointer-events-none"
+            style={{ backgroundColor: `${settings.accent_color}26` }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundColor: `rgba(0, 0, 0, ${overlayAlpha * 0.45})`,
+            }}
+          />
+        </>
+      )}
+
+      {/* Viền phát sáng đỉnh sân khấu */}
+      <div
+        className="absolute top-0 inset-x-0 h-[3px] z-20 pointer-events-none"
+        style={{
+          background: `linear-gradient(90deg, transparent 0%, ${settings.accent_color} 35%, ${settings.slogan_color} 65%, transparent 100%)`,
+        }}
+      />
+
+      {/* Thanh tiện ích nổi trên cùng (ẩn nút thừa khi ở chế độ Live Preview) */}
+      {!preview && (
+        <header className="relative z-30 flex items-center justify-between gap-3 px-6 pt-4 pb-2 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">{topLeft}</div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {realtimeConnected && (
+              <span
+                title="Đã kết nối Supabase Realtime"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-2.5 py-1 text-xs font-medium text-emerald-300"
+              >
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                Live
+              </span>
+            )}
+
+            {onToggleShortcuts && (
+              <button
+                type="button"
+                onClick={onToggleShortcuts}
+                title="Hướng dẫn phím tắt bút trình chiếu"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition cursor-pointer"
+              >
+                <Keyboard className="h-4 w-4" />
+                <span className="hidden md:inline">Phím tắt</span>
+              </button>
+            )}
+
+            {onToggleSound && (
+              <button
+                type="button"
+                onClick={onToggleSound}
+                title={soundEnabled ? "Tắt âm thanh" : "Bật âm thanh"}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium backdrop-blur-md transition cursor-pointer ${
+                  soundEnabled
+                    ? "bg-black/35 hover:bg-black/55 border-white/15 text-white/90"
+                    : "bg-rose-500/25 hover:bg-rose-500/35 border-rose-400/40 text-rose-200"
+                }`}
+              >
+                {soundEnabled ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <VolumeX className="h-4 w-4" />
+                )}
+                <span className="hidden md:inline">
+                  {soundEnabled ? "Âm thanh" : "Đã tắt tiếng"}
+                </span>
+              </button>
+            )}
+
+            {onToggleFullscreen && (
+              <button
+                type="button"
+                onClick={onToggleFullscreen}
+                title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition cursor-pointer"
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+                <span className="hidden lg:inline">
+                  {isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}
+                </span>
+              </button>
+            )}
+
+            <Link
+              href="/admin"
+              title="Trang quản trị cấu hình (/admin)"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          </div>
+        </header>
+      )}
+
+      {/* Nội dung chính sân khấu */}
+      <main
+        className={`relative z-20 flex-1 min-h-0 flex flex-col ${
+          preview ? "p-4" : "px-6 md:px-12 pb-6 pt-1"
+        }`}
+      >
+        {children}
+      </main>
+
+      {/* Modal hướng dẫn phím tắt bút trình chiếu */}
+      {!preview && showShortcuts && onToggleShortcuts && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={onToggleShortcuts}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-white/15 bg-slate-900/95 p-6 text-slate-100 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <Keyboard className="h-5 w-5 text-sky-400" />
+                <h3 className="text-lg font-bold">
+                  Phím tắt &amp; Bút trình chiếu (Remote)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={onToggleShortcuts}
+                className="rounded-lg p-1.5 hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3">
+                <span className="text-slate-300">
+                  Chuyển bước tuần tự (Hiện câu hỏi → Đếm ngược → Mở đáp án →
+                  Câu tiếp)
+                </span>
+                <div className="flex items-center gap-1 shrink-0 font-mono text-xs">
+                  <kbd className="rounded bg-white/15 px-2 py-1">→</kbd>
+                  <kbd className="rounded bg-white/15 px-2 py-1">PgDn</kbd>
+                  <kbd className="rounded bg-white/15 px-2 py-1">Space</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3">
+                <span className="text-slate-300">Quay lại câu trước</span>
+                <div className="flex items-center gap-1 shrink-0 font-mono text-xs">
+                  <kbd className="rounded bg-white/15 px-2 py-1">←</kbd>
+                  <kbd className="rounded bg-white/15 px-2 py-1">PgUp</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3">
+                <span className="text-slate-300">
+                  Chọn nhanh đáp án A / B / C / D
+                </span>
+                <div className="flex items-center gap-1 shrink-0 font-mono text-xs">
+                  <kbd className="rounded bg-white/15 px-2 py-1">1-4</kbd>
+                  <span className="text-slate-400">hoặc</span>
+                  <kbd className="rounded bg-white/15 px-2 py-1">A-D</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3">
+                <span className="text-slate-300">
+                  Bật / Tạm dừng đồng hồ đếm ngược
+                </span>
+                <kbd className="rounded bg-white/15 px-2.5 py-1 font-mono text-xs shrink-0">
+                  Enter
+                </kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
