@@ -78,6 +78,7 @@ export const DEFAULT_SETTINGS: ContestSettings = {
   mcq_duration: 15,
   scenario_duration: 120,
   auto_reveal_answer: true,
+  lock_during_countdown: true,
 };
 
 export const DEMO_MCQS: McqQuestion[] = [
@@ -272,7 +273,7 @@ export const DEMO_SCENARIOS: ScenarioQuestion[] = [
 ];
 
 export function groupByPackage<T extends { package_name: string }>(
-  items: T[]
+  items: T[],
 ): PackageGroup<T>[] {
   const map = new Map<string, T[]>();
   for (const item of items) {
@@ -291,32 +292,41 @@ export function groupByPackage<T extends { package_name: string }>(
 }
 
 export function normalizeSettings(
-  raw: Partial<ContestSettings> | null | undefined
+  raw: Partial<ContestSettings> | null | undefined,
 ): ContestSettings {
   if (!raw) return { ...DEFAULT_SETTINGS };
+  const sanitized = { ...raw } as Partial<ContestSettings> & {
+    admin_password?: unknown;
+  };
+  delete sanitized.admin_password;
+
   return {
     ...DEFAULT_SETTINGS,
-    ...raw,
+    ...sanitized,
     id: 1,
     overlay_opacity: clampNumber(
-      raw.overlay_opacity ?? DEFAULT_SETTINGS.overlay_opacity,
+      sanitized.overlay_opacity ?? DEFAULT_SETTINGS.overlay_opacity,
       0,
-      85
+      85,
     ),
     mcq_duration: clampNumber(
-      raw.mcq_duration ?? DEFAULT_SETTINGS.mcq_duration,
+      sanitized.mcq_duration ?? DEFAULT_SETTINGS.mcq_duration,
       5,
-      300
+      300,
     ),
     scenario_duration: clampNumber(
-      raw.scenario_duration ?? DEFAULT_SETTINGS.scenario_duration,
+      sanitized.scenario_duration ?? DEFAULT_SETTINGS.scenario_duration,
       10,
-      900
+      900,
     ),
     auto_reveal_answer:
-      typeof raw.auto_reveal_answer === "boolean"
-        ? raw.auto_reveal_answer
+      typeof sanitized.auto_reveal_answer === "boolean"
+        ? sanitized.auto_reveal_answer
         : DEFAULT_SETTINGS.auto_reveal_answer,
+    lock_during_countdown:
+      typeof sanitized.lock_during_countdown === "boolean"
+        ? sanitized.lock_during_countdown
+        : DEFAULT_SETTINGS.lock_during_countdown,
   };
 }
 

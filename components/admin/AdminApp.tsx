@@ -9,6 +9,7 @@ import {
   Database,
   ExternalLink,
   Loader2,
+  LogOut,
   Palette,
   Sliders,
   Tv,
@@ -38,7 +39,11 @@ interface ToastMessage {
   text: string;
 }
 
-export function AdminApp() {
+interface AdminAppProps {
+  onLogout?: () => Promise<void> | void;
+}
+
+export function AdminApp({ onLogout }: AdminAppProps) {
   const [activeTab, setActiveTab] = useState<AdminTabId>("rules");
   const [savedSettings, setSavedSettings] =
     useState<ContestSettings>(DEFAULT_SETTINGS);
@@ -129,6 +134,7 @@ export function AdminApp() {
       mcq_duration: draftSettings.mcq_duration,
       scenario_duration: draftSettings.scenario_duration,
       auto_reveal_answer: draftSettings.auto_reveal_answer,
+      lock_during_countdown: draftSettings.lock_during_countdown,
     };
     setDraftSettings(resetMerged);
     setSavingSettings(true);
@@ -147,6 +153,7 @@ export function AdminApp() {
     }
   }, [
     draftSettings.auto_reveal_answer,
+    draftSettings.lock_during_countdown,
     draftSettings.mcq_duration,
     draftSettings.scenario_duration,
     showToast,
@@ -192,6 +199,18 @@ export function AdminApp() {
               Mở Màn hình Sân khấu
               <ExternalLink className="h-4 w-4" />
             </Link>
+
+            {onLogout && (
+              <button
+                type="button"
+                onClick={() => void onLogout()}
+                title="Đăng xuất & khóa trang quản trị"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800 px-3 py-2 text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Đăng xuất</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -282,6 +301,7 @@ export function AdminApp() {
                 onSave={handleSaveSettings}
                 saving={savingSettings}
                 isDirty={isDirty}
+                onToast={showToast}
               />
             )}
 

@@ -183,9 +183,11 @@ function StageLivePreview({
                       >
                         {pkg}
                       </h3>
-                      <p className="text-sm opacity-75">5 câu hỏi trắc nghiệm</p>
+                      <p className="text-sm opacity-75">
+                        5 câu hỏi trắc nghiệm
+                      </p>
                     </div>
-                  )
+                  ),
                 )}
               </div>
             </div>
@@ -195,15 +197,12 @@ function StageLivePreview({
             <div className="flex-1 flex flex-col justify-between gap-4 px-8 py-4">
               <div className="flex items-center justify-between">
                 <div
-                  className="rounded-2xl border px-4 py-2"
+                  className="rounded-2xl border px-5 py-2.5"
                   style={{
                     backgroundColor: `${settings.card_color}dd`,
                     borderColor: `${settings.accent_color}66`,
                   }}
                 >
-                  <span className="text-xs uppercase tracking-widest opacity-70 block">
-                    Gói 1 - Công dân số
-                  </span>
                   <span
                     className="text-2xl font-extrabold"
                     style={{
@@ -313,15 +312,12 @@ function StageLivePreview({
             <div className="flex-1 flex flex-col justify-between gap-5 px-8 py-4">
               <div className="flex items-center justify-between">
                 <div
-                  className="rounded-2xl border px-4 py-2"
+                  className="rounded-2xl border px-5 py-2.5"
                   style={{
                     backgroundColor: `${settings.card_color}dd`,
                     borderColor: `${settings.slogan_color}66`,
                   }}
                 >
-                  <span className="text-xs uppercase tracking-widest opacity-70 block">
-                    Phần 2 • Xử lý tình huống
-                  </span>
                   <span
                     className="text-2xl font-extrabold"
                     style={{
@@ -354,9 +350,9 @@ function StageLivePreview({
                     }}
                   >
                     {`${String(
-                      Math.floor(settings.scenario_duration / 60)
+                      Math.floor(settings.scenario_duration / 60),
                     ).padStart(2, "0")}:${String(
-                      settings.scenario_duration % 60
+                      settings.scenario_duration % 60,
                     ).padStart(2, "0")}`}
                   </span>
                 </div>
@@ -403,7 +399,7 @@ function StageLivePreview({
                   }}
                 >
                   <ClipboardCheck className="h-4 w-4" />
-                  Xem gợi ý chấm điểm (Ban giám khảo)
+                  Gợi ý chấm điểm
                 </span>
               </div>
             </div>
@@ -438,12 +434,12 @@ export function AppearanceTab({
       onChange({ logo_url: publicUrl });
       onToast(
         "success",
-        "Đã tải Logo lên thành công! Nhớ bấm Lưu cấu hình để áp dụng lên sân khấu."
+        "Đã tải Logo lên thành công! Nhớ bấm Lưu cấu hình để áp dụng lên sân khấu.",
       );
     } catch (err) {
       onToast(
         "error",
-        err instanceof Error ? err.message : "Lỗi tải Logo lên Storage"
+        err instanceof Error ? err.message : "Lỗi tải Logo lên Storage",
       );
     } finally {
       setUploadingLogo(false);
@@ -470,12 +466,12 @@ export function AppearanceTab({
       });
       onToast(
         "success",
-        "Đã tải ảnh nền lên thành công! Nhớ bấm Lưu cấu hình để đồng bộ lên sân khấu."
+        "Đã tải ảnh nền lên thành công! Nhớ bấm Lưu cấu hình để đồng bộ lên sân khấu.",
       );
     } catch (err) {
       onToast(
         "error",
-        err instanceof Error ? err.message : "Lỗi tải ảnh nền lên Storage"
+        err instanceof Error ? err.message : "Lỗi tải ảnh nền lên Storage",
       );
     } finally {
       setUploadingBg(false);
@@ -886,7 +882,9 @@ export function AppearanceTab({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                      <span>Cỡ chữ ({ctrl.min}px – {ctrl.max}px)</span>
+                      <span>
+                        Cỡ chữ ({ctrl.min}px – {ctrl.max}px)
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -977,7 +975,7 @@ export function AppearanceTab({
               onClick={() => {
                 if (
                   window.confirm(
-                    "Khôi phục toàn bộ màu sắc, font chữ, cỡ chữ và hình nền về giao diện mặc định?"
+                    "Khôi phục toàn bộ màu sắc, font chữ, cỡ chữ và hình nền về giao diện mặc định?",
                   )
                 ) {
                   void onResetDefault();

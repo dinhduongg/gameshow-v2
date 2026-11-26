@@ -48,6 +48,7 @@ export interface ContestSettings {
   mcq_duration: number;
   scenario_duration: number;
   auto_reveal_answer: boolean;
+  lock_during_countdown: boolean;
 
   updated_at?: string;
 }

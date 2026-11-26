@@ -13,6 +13,15 @@ import {
   DEMO_SCENARIOS,
   normalizeSettings,
 } from "@/lib/defaults";
+import {
+  EMPTY_LOCKED_PACKAGES,
+  lockPackage,
+  readLockedPackages,
+  subscribeLockedPackages,
+  unlockAllPackages,
+  type LockedPackagesState,
+  type PackageKind,
+} from "@/lib/lockedPackages";
 import { soundEngine } from "@/lib/sound";
 import {
   fetchMcqs,
@@ -41,6 +50,9 @@ interface StageContextValue {
   toggleFullscreen: () => void;
   showShortcuts: boolean;
   setShowShortcuts: React.Dispatch<React.SetStateAction<boolean>>;
+  lockedPackages: LockedPackagesState;
+  markPackageCompleted: (kind: PackageKind, packageName: string) => void;
+  resetLockedPackages: (kind?: PackageKind) => void;
   refreshAll: () => Promise<void>;
 }
 
@@ -56,6 +68,9 @@ export function StageProvider({ children }: { children: React.ReactNode }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [lockedPackages, setLockedPackages] = useState<LockedPackagesState>(
+    EMPTY_LOCKED_PACKAGES
+  );
 
   const refreshSettings = useCallback(async () => {
     try {
@@ -183,6 +198,31 @@ export function StageProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshMcqs, refreshScenarios, refreshSettings]);
 
+  // Nạp và đồng bộ danh sách bộ đề đã khóa
+  useEffect(() => {
+    const rafId = window.requestAnimationFrame(() => {
+      setLockedPackages(readLockedPackages());
+    });
+    const unsubscribe = subscribeLockedPackages((next) => {
+      setLockedPackages(next);
+    });
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      unsubscribe();
+    };
+  }, []);
+
+  const markPackageCompleted = useCallback(
+    (kind: PackageKind, packageName: string) => {
+      setLockedPackages(lockPackage(kind, packageName));
+    },
+    []
+  );
+
+  const resetLockedPackages = useCallback((kind?: PackageKind) => {
+    setLockedPackages(unlockAllPackages(kind));
+  }, []);
+
   // Đồng bộ trạng thái âm thanh & toàn màn hình
   useEffect(() => {
     soundEngine.setEnabled(soundEnabled);
@@ -231,6 +271,9 @@ export function StageProvider({ children }: { children: React.ReactNode }) {
         toggleFullscreen,
         showShortcuts,
         setShowShortcuts,
+        lockedPackages,
+        markPackageCompleted,
+        resetLockedPackages,
         refreshAll,
       }}
     >

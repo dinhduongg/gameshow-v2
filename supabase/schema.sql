@@ -39,13 +39,19 @@ create table if not exists public.settings (
   timer_size integer not null default 52,
   timer_weight integer not null default 800,
 
-  -- Luật chơi
+  -- Luật chơi & Bảo mật Admin
   mcq_duration integer not null default 15 check (mcq_duration >= 5 and mcq_duration <= 300),
   scenario_duration integer not null default 120 check (scenario_duration >= 10 and scenario_duration <= 900),
   auto_reveal_answer boolean not null default true,
+  lock_during_countdown boolean not null default true,
+  admin_password text not null default 'admin123',
 
   updated_at timestamptz not null default now()
 );
+
+-- Bổ sung cột mới an toàn cho cơ sở dữ liệu đã tạo trước đó
+alter table public.settings add column if not exists lock_during_countdown boolean not null default true;
+alter table public.settings add column if not exists admin_password text not null default 'admin123';
 
 -- 2. BẢNG CÂU HỎI TRẮC NGHIỆM (PHẦN 1)
 create table if not exists public.mcqs (
@@ -77,10 +83,16 @@ create table if not exists public.scenarios (
 
 create index if not exists idx_scenarios_package_order on public.scenarios (package_name, order_index, id);
 
--- 4. TẮT RLS CHO BẢN DEMO (ĐỌC / GHI CÔNG KHAI KHÔNG CẦN ĐĂNG NHẬP)
+-- 4. CẤP QUYỀN BẢNG/SEQUENCE VÀ TẮT RLS CHO BẢN DEMO (ĐỌC / GHI CÔNG KHAI)
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table public.settings, public.mcqs, public.scenarios to anon, authenticated;
+grant usage, select on all sequences in schema public to anon, authenticated;
+
 alter table public.settings disable row level security;
 alter table public.mcqs disable row level security;
 alter table public.scenarios disable row level security;
+
+notify pgrst, 'reload schema';
 
 -- 5. CẤU HÌNH SUPABASE REALTIME CHO SETTINGS, MCQS VÀ SCENARIOS
 alter table public.settings replica identity full;

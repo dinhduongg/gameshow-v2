@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -11,10 +17,10 @@ import {
   Eye,
   FolderKanban,
   Home,
+  Lock,
+  LockOpen,
   Pause,
   Play,
-  RotateCcw,
-  Sparkles,
   Trophy,
   XCircle,
 } from "lucide-react";
@@ -39,48 +45,61 @@ export function McqStage() {
     toggleFullscreen,
     showShortcuts,
     setShowShortcuts,
+    lockedPackages,
+    markPackageCompleted,
+    resetLockedPackages,
   } = useStage();
 
   const packages = useMemo(() => groupByPackage(mcqs), [mcqs]);
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(
-    null
+    null,
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [step, setStep] = useState<McqStep>("question");
-  const [selectedAnswer, setSelectedAnswer] =
-    useState<CorrectAnswerKey | null>(null);
-  const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState<CorrectAnswerKey | null>(
+    null,
+  );
+  const [displayedTime, setDisplayedTime] = useState<number | null>(null);
   const [timerRunning, setTimerRunning] = useState(false);
   const [finished, setFinished] = useState(false);
+  const remainingMsRef = useRef<number | null>(null);
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
 
   const activePackage = useMemo(
     () => packages.find((pkg) => pkg.name === selectedPackageName) ?? null,
-    [packages, selectedPackageName]
+    [packages, selectedPackageName],
   );
 
   const questions = activePackage?.items ?? [];
   const currentQuestion = questions[currentIndex] ?? null;
+  const isInteractionLocked = timerRunning && settings.lock_during_countdown;
   const timeLeft =
     step === "question"
       ? settings.mcq_duration
-      : (remainingTime ?? settings.mcq_duration);
+      : (displayedTime ?? settings.mcq_duration);
 
-  const startPackage = useCallback((packageName: string) => {
-    setSelectedPackageName(packageName);
-    setCurrentIndex(0);
-    setStep("question");
-    setSelectedAnswer(null);
-    setRemainingTime(null);
-    setTimerRunning(false);
-    setFinished(false);
-    soundEngine.playLock();
-  }, []);
+  const startPackage = useCallback(
+    (packageName: string) => {
+      if (lockedPackages.mcq.includes(packageName)) return;
+      setSelectedPackageName(packageName);
+      setCurrentIndex(0);
+      setStep("question");
+      setSelectedAnswer(null);
+      remainingMsRef.current = null;
+      setDisplayedTime(null);
+      setTimerRunning(false);
+      setFinished(false);
+      soundEngine.playLock();
+    },
+    [lockedPackages.mcq]
+  );
 
   const resetQuestionState = useCallback((targetIndex: number) => {
     setCurrentIndex(targetIndex);
     setStep("question");
     setSelectedAnswer(null);
-    setRemainingTime(null);
+    remainingMsRef.current = null;
+    setDisplayedTime(null);
     setTimerRunning(false);
     setFinished(false);
   }, []);
@@ -100,12 +119,19 @@ export function McqStage() {
         soundEngine.playLock();
       }
     },
-    [currentQuestion]
+    [currentQuestion],
   );
 
   const handleSelectOption = useCallback(
     (key: CorrectAnswerKey) => {
-      if (!currentQuestion || finished || step === "revealed") return;
+      if (
+        !currentQuestion ||
+        finished ||
+        step === "revealed" ||
+        isInteractionLocked
+      ) {
+        return;
+      }
       setSelectedAnswer(key);
       setTimerRunning(false);
 
@@ -119,18 +145,27 @@ export function McqStage() {
     [
       currentQuestion,
       finished,
+      isInteractionLocked,
       revealAnswer,
       settings.auto_reveal_answer,
       step,
-    ]
+    ],
   );
 
   const handleAdvanceStep = useCallback(() => {
-    if (!activePackage || questions.length === 0 || finished) return;
+    if (
+      !activePackage ||
+      questions.length === 0 ||
+      finished ||
+      isInteractionLocked
+    ) {
+      return;
+    }
 
     if (step === "question") {
       setStep("running");
-      setRemainingTime(settings.mcq_duration);
+      remainingMsRef.current = settings.mcq_duration * 1000;
+      setDisplayedTime(settings.mcq_duration);
       setTimerRunning(true);
       soundEngine.playLock();
       return;
@@ -146,6 +181,7 @@ export function McqStage() {
         resetQuestionState(currentIndex + 1);
         soundEngine.playLock();
       } else {
+        markPackageCompleted("mcq", activePackage.name);
         setFinished(true);
         setTimerRunning(false);
         soundEngine.playCorrect();
@@ -155,6 +191,8 @@ export function McqStage() {
     activePackage,
     currentIndex,
     finished,
+    isInteractionLocked,
+    markPackageCompleted,
     questions.length,
     resetQuestionState,
     revealAnswer,
@@ -164,7 +202,7 @@ export function McqStage() {
   ]);
 
   const handlePreviousQuestion = useCallback(() => {
-    if (!activePackage || questions.length === 0) return;
+    if (!activePackage || questions.length === 0 || isInteractionLocked) return;
     if (finished) {
       resetQuestionState(questions.length - 1);
       return;
@@ -173,14 +211,29 @@ export function McqStage() {
       resetQuestionState(currentIndex - 1);
       soundEngine.playLock();
     }
-  }, [activePackage, currentIndex, finished, questions.length, resetQuestionState]);
+  }, [
+    activePackage,
+    currentIndex,
+    finished,
+    isInteractionLocked,
+    questions.length,
+    resetQuestionState,
+  ]);
 
   const handleToggleTimer = useCallback(() => {
-    if (!activePackage || finished || step === "revealed") return;
+    if (
+      !activePackage ||
+      finished ||
+      step === "revealed" ||
+      isInteractionLocked
+    ) {
+      return;
+    }
 
     if (step === "question") {
       setStep("running");
-      setRemainingTime(settings.mcq_duration);
+      remainingMsRef.current = settings.mcq_duration * 1000;
+      setDisplayedTime(settings.mcq_duration);
       setTimerRunning(true);
       soundEngine.playLock();
       return;
@@ -195,35 +248,78 @@ export function McqStage() {
       }
       return next;
     });
-  }, [activePackage, finished, settings.mcq_duration, step, timeLeft]);
+  }, [
+    activePackage,
+    finished,
+    isInteractionLocked,
+    settings.mcq_duration,
+    step,
+    timeLeft,
+  ]);
 
-  // Đồng hồ đếm ngược + hiệu ứng tích tắc 5 giây cuối
+  // Cập nhật vị trí thanh tiến độ khi không chạy (reset / tạm dừng / đổi câu)
+  useEffect(() => {
+    if (timerRunning || !progressBarRef.current) return;
+    const totalMs = Math.max(1, settings.mcq_duration) * 1000;
+    const currentMs =
+      step === "question" ? totalMs : (remainingMsRef.current ?? totalMs);
+    const ratio = Math.max(0, Math.min(1, currentMs / totalMs));
+    progressBarRef.current.style.transform = `scaleX(${ratio})`;
+  }, [activePackage, currentIndex, settings.mcq_duration, step, timerRunning]);
+
+  // Đồng hồ đếm ngược 60fps bằng requestAnimationFrame + tích tắc 5 giây cuối
   useEffect(() => {
     if (!timerRunning) return;
 
-    const timerId = window.setInterval(() => {
-      setRemainingTime((prev) => {
-        const current = prev ?? settings.mcq_duration;
-        const next = current - 1;
-        if (next > 0 && next <= 5) {
-          soundEngine.playTick(next <= 3);
-        }
-        if (next <= 0) {
-          window.clearInterval(timerId);
-          setTimerRunning(false);
-          soundEngine.playTimeUp();
-          if (settings.auto_reveal_answer) {
-            setStep("revealed");
-          } else {
-            setStep("locked");
-          }
-          return 0;
-        }
-        return next;
-      });
-    }, 1000);
+    const totalMs = Math.max(1, settings.mcq_duration) * 1000;
+    if (remainingMsRef.current === null) {
+      remainingMsRef.current = totalMs;
+    }
 
-    return () => window.clearInterval(timerId);
+    let lastFrameTime = performance.now();
+    let lastShownSecond = Math.ceil(remainingMsRef.current / 1000);
+    let rafId = 0;
+
+    const frame = (now: number) => {
+      const delta = now - lastFrameTime;
+      lastFrameTime = now;
+
+      const nextMs = Math.max(0, (remainingMsRef.current ?? totalMs) - delta);
+      remainingMsRef.current = nextMs;
+
+      if (progressBarRef.current) {
+        progressBarRef.current.style.transform = `scaleX(${Math.max(
+          0,
+          Math.min(1, nextMs / totalMs),
+        )})`;
+      }
+
+      const nextSec = Math.ceil(nextMs / 1000);
+      if (nextSec !== lastShownSecond) {
+        lastShownSecond = nextSec;
+        setDisplayedTime(nextSec);
+        if (nextSec > 0 && nextSec <= 5) {
+          soundEngine.playTick(nextSec <= 3);
+        }
+      }
+
+      if (nextMs <= 0) {
+        setDisplayedTime(0);
+        setTimerRunning(false);
+        soundEngine.playTimeUp();
+        if (settings.auto_reveal_answer) {
+          setStep("revealed");
+        } else {
+          setStep("locked");
+        }
+        return;
+      }
+
+      rafId = window.requestAnimationFrame(frame);
+    };
+
+    rafId = window.requestAnimationFrame(frame);
+    return () => window.cancelAnimationFrame(rafId);
   }, [settings.auto_reveal_answer, settings.mcq_duration, timerRunning]);
 
   // Bắt phím tắt Bút trình chiếu (Remote PowerPoint) & Bàn phím
@@ -231,6 +327,12 @@ export function McqStage() {
     if (!activePackage) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isInteractionLocked) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -242,7 +344,11 @@ export function McqStage() {
         return;
       }
 
-      if (e.key === "ArrowRight" || e.key === "PageDown" || e.code === "Space") {
+      if (
+        e.key === "ArrowRight" ||
+        e.key === "PageDown" ||
+        e.code === "Space"
+      ) {
         e.preventDefault();
         handleAdvanceStep();
         return;
@@ -284,48 +390,66 @@ export function McqStage() {
     handlePreviousQuestion,
     handleSelectOption,
     handleToggleTimer,
+    isInteractionLocked,
   ]);
 
   const topLeftControls = activePackage ? (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2">
       <button
         type="button"
+        title="Chọn bộ đề"
         onClick={() => {
           setSelectedPackageName(null);
           setTimerRunning(false);
         }}
-        className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition cursor-pointer"
+        className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/35 hover:bg-black/60 border border-white/15 text-white/90 backdrop-blur-md transition cursor-pointer opacity-70 hover:opacity-100"
       >
         <ArrowLeft className="h-4 w-4" />
-        Chọn bộ đề
       </button>
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition"
+        title="Trang chủ"
+        className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/35 hover:bg-black/60 border border-white/15 text-white/90 backdrop-blur-md transition opacity-70 hover:opacity-100"
       >
         <Home className="h-4 w-4" />
-        <span className="hidden sm:inline">Trang chủ</span>
       </Link>
       <span
-        className="hidden md:inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold uppercase tracking-wider backdrop-blur-md"
+        className="hidden md:inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-bold uppercase tracking-wider backdrop-blur-md"
         style={{
           backgroundColor: `${settings.card_color}cc`,
           borderColor: `${settings.accent_color}55`,
           color: settings.accent_color,
         }}
       >
-        <FolderKanban className="h-3.5 w-3.5" />
         {activePackage.name}
       </span>
     </div>
   ) : (
-    <Link
-      href="/"
-      className="inline-flex items-center gap-2 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3.5 py-2 text-xs font-semibold text-white/95 backdrop-blur-md transition"
-    >
-      <ArrowLeft className="h-4 w-4" />
-      Về màn hình chính
-    </Link>
+    <div className="flex items-center gap-2">
+      <Link
+        href="/"
+        title="Về màn hình chính"
+        className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/35 hover:bg-black/60 border border-white/15 text-white/95 backdrop-blur-md transition opacity-75 hover:opacity-100"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Link>
+      {lockedPackages.mcq.length > 0 && (
+        <button
+          type="button"
+          title="Mở khóa toàn bộ bộ đề Trắc nghiệm"
+          onClick={() => {
+            if (
+              window.confirm("Mở khóa lại tất cả bộ đề Trắc nghiệm đã thi?")
+            ) {
+              resetLockedPackages("mcq");
+            }
+          }}
+          className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/35 hover:bg-black/60 border border-white/15 text-white/90 backdrop-blur-md transition opacity-65 hover:opacity-100 cursor-pointer"
+        >
+          <LockOpen className="h-4 w-4" />
+        </button>
+      )}
+    </div>
   );
 
   // MÀN HÌNH 1: CHỌN BỘ ĐỀ TRẮC NGHIỆM (HIỂN THỊ ĐẦY ĐỦ LOGO, TIÊU ĐỀ, SLOGAN)
@@ -342,122 +466,121 @@ export function McqStage() {
         onToggleShortcuts={() => setShowShortcuts((v) => !v)}
         realtimeConnected={realtimeConnected}
       >
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-6 max-w-6xl w-full mx-auto">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-7 max-w-6xl w-full mx-auto">
           <StageHeaderHero
             settings={settings}
             compact
-            badgeText="PHẦN 1 • THI TRẮC NGHIỆM"
+            badgeText="THI TRẮC NGHIỆM"
           />
 
           <div className="w-full flex-1 min-h-0 flex flex-col justify-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Sparkles
-                className="h-4 w-4"
-                style={{ color: settings.accent_color }}
-              />
-              <h2
-                className="text-base md:text-lg font-bold uppercase tracking-[0.18em]"
-                style={{
-                  fontFamily: getFontCss(settings.heading_font),
-                  color: settings.text_color,
-                }}
-              >
-                Chọn bộ đề thi Trắc nghiệm
-              </h2>
-              <Sparkles
-                className="h-4 w-4"
-                style={{ color: settings.accent_color }}
-              />
-            </div>
-
             {loading ? (
-              <div className="text-center py-12 opacity-75">
-                Đang tải danh sách bộ đề trắc nghiệm...
-              </div>
+              <div className="text-center py-12 opacity-75">Đang tải...</div>
             ) : packages.length === 0 ? (
               <div
-                className="mx-auto max-w-lg rounded-3xl border p-8 text-center backdrop-blur-md"
+                className="mx-auto max-w-md rounded-3xl border p-8 text-center backdrop-blur-md"
                 style={{
                   backgroundColor: `${settings.card_color}cc`,
                   borderColor: `${settings.accent_color}45`,
                 }}
               >
-                <p className="text-lg font-semibold mb-2">
-                  Chưa có câu hỏi trắc nghiệm nào
-                </p>
-                <p className="text-sm opacity-75 mb-5">
-                  Hãy vào trang Admin để thêm câu hỏi thủ công hoặc Import từ
-                  file Excel (.xlsx).
-                </p>
+                <p className="text-lg font-semibold mb-4">Chưa có bộ đề nào</p>
                 <Link
                   href="/admin"
                   className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-slate-950 transition"
                   style={{ backgroundColor: settings.accent_color }}
                 >
-                  Mở trang Quản trị (/admin)
+                  Thêm bộ đề
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-h-[48vh] overflow-y-auto custom-scrollbar px-1 py-1">
-                {packages.map((pkg, idx) => (
-                  <button
-                    key={pkg.name}
-                    type="button"
-                    onClick={() => startPackage(pkg.name)}
-                    className="group relative overflow-hidden rounded-2xl border-2 p-6 text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl backdrop-blur-md cursor-pointer flex flex-col justify-between gap-4"
-                    style={{
-                      backgroundColor: `${settings.card_color}d9`,
-                      borderColor: `${settings.accent_color}55`,
-                      boxShadow: `0 12px 32px -10px rgba(0,0,0,0.5)`,
-                    }}
-                  >
-                    <div
-                      className="absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl opacity-25 group-hover:opacity-55 transition-opacity"
-                      style={{ backgroundColor: settings.accent_color }}
-                    />
-                    <div className="relative flex items-center justify-between">
-                      <span
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-base font-extrabold border"
-                        style={{
-                          backgroundColor: `${settings.accent_color}22`,
-                          borderColor: `${settings.accent_color}55`,
-                          color: settings.accent_color,
-                          fontFamily: getFontCss(settings.heading_font),
-                        }}
-                      >
-                        {String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
-                        <Clock className="h-3.5 w-3.5" />
-                        {settings.mcq_duration}s / câu
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <h3
-                        className="text-xl font-bold leading-snug mb-1.5"
-                        style={{
-                          fontFamily: getFontCss(settings.heading_font),
-                          color: settings.text_color,
-                        }}
-                      >
-                        {pkg.name}
-                      </h3>
-                      <p className="text-sm opacity-75">
-                        {pkg.items.length} câu hỏi trắc nghiệm
-                      </p>
-                    </div>
-
-                    <div
-                      className="relative flex items-center justify-between pt-3 border-t border-white/10 text-sm font-bold"
-                      style={{ color: settings.accent_color }}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-h-[50vh] overflow-y-auto custom-scrollbar px-1 py-1">
+                {packages.map((pkg, idx) => {
+                  const isLocked = lockedPackages.mcq.includes(pkg.name);
+                  return (
+                    <button
+                      key={pkg.name}
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => startPackage(pkg.name)}
+                      className={`group relative overflow-hidden rounded-2xl border-2 p-6 text-left transition-all duration-200 backdrop-blur-md flex flex-col justify-between gap-5 ${
+                        isLocked
+                          ? "opacity-45 grayscale cursor-not-allowed"
+                          : "hover:-translate-y-1 hover:shadow-2xl cursor-pointer"
+                      }`}
+                      style={{
+                        backgroundColor: `${settings.card_color}d9`,
+                        borderColor: isLocked
+                          ? "rgba(255,255,255,0.16)"
+                          : `${settings.accent_color}55`,
+                        boxShadow: `0 12px 32px -10px rgba(0,0,0,0.5)`,
+                      }}
                     >
-                      <span>Bắt đầu thi bộ đề này</span>
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                    </div>
-                  </button>
-                ))}
+                      {!isLocked && (
+                        <div
+                          className="absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl opacity-25 group-hover:opacity-55 transition-opacity"
+                          style={{ backgroundColor: settings.accent_color }}
+                        />
+                      )}
+                      <div className="relative flex items-center justify-between">
+                        <span
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-base font-extrabold border"
+                          style={{
+                            backgroundColor: isLocked
+                              ? "rgba(255,255,255,0.08)"
+                              : `${settings.accent_color}22`,
+                            borderColor: isLocked
+                              ? "rgba(255,255,255,0.2)"
+                              : `${settings.accent_color}55`,
+                            color: isLocked
+                              ? "rgba(255,255,255,0.65)"
+                              : settings.accent_color,
+                            fontFamily: getFontCss(settings.heading_font),
+                          }}
+                        >
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        {isLocked ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                            <Lock className="h-3.5 w-3.5" />
+                            Đã thi
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
+                            <Clock className="h-3.5 w-3.5" />
+                            {settings.mcq_duration}s
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="relative flex items-end justify-between gap-3">
+                        <div>
+                          <h3
+                            className="text-xl font-bold leading-snug mb-1"
+                            style={{
+                              fontFamily: getFontCss(settings.heading_font),
+                              color: settings.text_color,
+                            }}
+                          >
+                            {pkg.name}
+                          </h3>
+                          <p className="text-sm opacity-75">
+                            {pkg.items.length} câu hỏi
+                          </p>
+                        </div>
+                        {isLocked ? (
+                          <Lock className="h-5 w-5 shrink-0 opacity-65" />
+                        ) : (
+                          <ArrowRight
+                            className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1"
+                            style={{ color: settings.accent_color }}
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -506,40 +629,26 @@ export function McqStage() {
                 color: settings.text_color,
               }}
             >
-              HOÀN THÀNH PHẦN THI TRẮC NGHIỆM!
+              HOÀN THÀNH!
             </h2>
-            <p
-              className="text-lg opacity-85"
-              style={{ color: settings.slogan_color }}
-            >
-              Đã trình chiếu trọn vẹn {questions.length} câu hỏi trong bộ đề.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <button
               type="button"
-              onClick={() => resetQuestionState(0)}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 hover:bg-white/20 px-6 py-3.5 text-base font-bold transition cursor-pointer"
-            >
-              <RotateCcw className="h-5 w-5" />
-              Trình chiếu lại bộ đề
-            </button>
-            <button
-              type="button"
               onClick={() => setSelectedPackageName(null)}
-              className="inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 text-base font-bold text-slate-950 transition cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-base font-bold text-slate-950 transition cursor-pointer"
               style={{ backgroundColor: settings.accent_color }}
             >
               <FolderKanban className="h-5 w-5" />
-              Chọn bộ đề khác
+              Bộ đề khác
             </button>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-black/35 hover:bg-black/55 px-6 py-3.5 text-base font-bold transition"
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-black/35 hover:bg-black/55 px-6 py-3 text-base font-bold transition"
             >
               <Home className="h-5 w-5" />
-              Màn hình chính
+              Trang chủ
             </Link>
           </div>
         </div>
@@ -550,28 +659,15 @@ export function McqStage() {
   // MÀN HÌNH 2: TRÌNH CHIẾU CÂU HỎI TRẮC NGHIỆM
   const isUrgent = timerRunning && timeLeft > 0 && timeLeft <= 5;
   const isTimeUp = timeLeft === 0;
-  const progressPercent = Math.max(
-    0,
-    Math.min(100, (timeLeft / Math.max(1, settings.mcq_duration)) * 100)
-  );
-
-  const stepLabel =
-    step === "question"
-      ? "Chờ bắt đầu đếm ngược"
-      : step === "running"
-      ? "Đang tính giờ"
-      : step === "locked"
-      ? "Đã chốt — Chờ mở đáp án"
-      : "Đã công bố đáp án";
 
   const nextActionLabel =
     step === "question"
-      ? "Bắt đầu đếm ngược"
+      ? "Bắt đầu"
       : step === "running" || step === "locked"
-      ? "Chốt & Hiện đáp án"
-      : currentIndex + 1 < questions.length
-      ? "Câu tiếp theo"
-      : "Kết thúc bộ đề";
+        ? "Hiện đáp án"
+        : currentIndex + 1 < questions.length
+          ? "Câu tiếp"
+          : "Hoàn thành";
 
   const optionTexts: Record<CorrectAnswerKey, string> = {
     A: currentQuestion.option_a,
@@ -583,6 +679,7 @@ export function McqStage() {
   return (
     <StageFrame
       settings={settings}
+      locked={isInteractionLocked}
       topLeft={topLeftControls}
       soundEnabled={soundEnabled}
       onToggleSound={toggleSound}
@@ -593,60 +690,24 @@ export function McqStage() {
       realtimeConnected={realtimeConnected}
     >
       <div className="flex-1 min-h-0 flex flex-col justify-between gap-4 max-w-7xl w-full mx-auto">
-        {/* Thanh trạng thái câu hỏi & Đồng hồ đếm ngược */}
+        {/* Số câu & Đồng hồ đếm ngược */}
         <div className="flex items-center justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div
-              className="rounded-2xl border px-4 py-2 backdrop-blur-md"
+          <div
+            className="rounded-2xl border px-5 py-2.5 backdrop-blur-md"
+            style={{
+              backgroundColor: `${settings.card_color}dd`,
+              borderColor: `${settings.accent_color}66`,
+            }}
+          >
+            <span
+              className="text-xl md:text-2xl font-extrabold"
               style={{
-                backgroundColor: `${settings.card_color}dd`,
-                borderColor: `${settings.accent_color}66`,
+                fontFamily: getFontCss(settings.heading_font),
+                color: settings.accent_color,
               }}
             >
-              <span className="text-xs uppercase tracking-widest opacity-70 block">
-                Tiến độ câu hỏi
-              </span>
-              <span
-                className="text-xl md:text-2xl font-extrabold"
-                style={{
-                  fontFamily: getFontCss(settings.heading_font),
-                  color: settings.accent_color,
-                }}
-              >
-                CÂU {currentIndex + 1} / {questions.length}
-              </span>
-            </div>
-
-            <div className="hidden sm:flex flex-col gap-1">
-              <span
-                className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-bold uppercase tracking-wider"
-                style={{
-                  backgroundColor:
-                    step === "revealed"
-                      ? "rgba(16, 185, 129, 0.2)"
-                      : step === "locked"
-                      ? `${settings.slogan_color}24`
-                      : `${settings.card_color}bb`,
-                  borderColor:
-                    step === "revealed"
-                      ? "rgba(52, 211, 153, 0.6)"
-                      : step === "locked"
-                      ? `${settings.slogan_color}88`
-                      : "rgba(255,255,255,0.18)",
-                  color:
-                    step === "revealed"
-                      ? "#6ee7b7"
-                      : step === "locked"
-                      ? settings.slogan_color
-                      : settings.text_color,
-                }}
-              >
-                {stepLabel}
-              </span>
-              <span className="text-xs opacity-65 pl-1">
-                {settings.contest_title}
-              </span>
-            </div>
+              CÂU {currentIndex + 1} / {questions.length}
+            </span>
           </div>
 
           {/* Đồng hồ đếm ngược sân khấu */}
@@ -654,9 +715,9 @@ export function McqStage() {
             <button
               type="button"
               onClick={handleToggleTimer}
-              disabled={step === "revealed" || isTimeUp}
+              disabled={step === "revealed" || isTimeUp || isInteractionLocked}
               title="Bật / Tạm dừng đồng hồ (Enter)"
-              className="hidden sm:inline-flex items-center justify-center h-11 w-11 rounded-xl border border-white/20 bg-black/35 hover:bg-black/55 disabled:opacity-35 transition cursor-pointer"
+              className="hidden sm:inline-flex items-center justify-center h-11 w-11 rounded-xl border border-white/20 bg-black/35 hover:bg-black/55 disabled:opacity-30 transition cursor-pointer"
             >
               {timerRunning ? (
                 <Pause className="h-5 w-5" />
@@ -678,8 +739,8 @@ export function McqStage() {
                   isUrgent || isTimeUp
                     ? "#f87171"
                     : timerRunning
-                    ? settings.accent_color
-                    : "rgba(255,255,255,0.22)",
+                      ? settings.accent_color
+                      : "rgba(255,255,255,0.22)",
               }}
             >
               <Clock
@@ -692,30 +753,27 @@ export function McqStage() {
                     : { color: settings.accent_color }
                 }
               />
-              <div className="flex flex-col items-end leading-none">
-                <span
-                  className="tabular-nums leading-none"
-                  style={{
-                    fontFamily: getFontCss(settings.heading_font),
-                    fontSize: `${settings.timer_size}px`,
-                    fontWeight: settings.timer_weight,
-                    color:
-                      isUrgent || isTimeUp ? "#fecaca" : settings.text_color,
-                  }}
-                >
-                  {String(timeLeft).padStart(2, "0")}
-                </span>
-              </div>
+              <span
+                className="tabular-nums leading-none"
+                style={{
+                  fontFamily: getFontCss(settings.heading_font),
+                  fontSize: `${settings.timer_size}px`,
+                  fontWeight: settings.timer_weight,
+                  color: isUrgent || isTimeUp ? "#fecaca" : settings.text_color,
+                }}
+              >
+                {String(timeLeft).padStart(2, "0")}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Thanh tiến độ thời gian mỏng */}
+        {/* Thanh tiến độ thời gian mượt 60fps */}
         <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden shrink-0">
           <div
-            className="h-full rounded-full transition-all duration-500 ease-linear"
+            ref={progressBarRef}
+            className="h-full w-full rounded-full origin-left will-change-transform transition-colors duration-200"
             style={{
-              width: `${progressPercent}%`,
               backgroundColor:
                 isUrgent || isTimeUp ? "#ef4444" : settings.accent_color,
             }}
@@ -786,10 +844,10 @@ export function McqStage() {
               <button
                 key={key}
                 type="button"
-                disabled={isRevealed}
+                disabled={isRevealed || isInteractionLocked}
                 onClick={() => handleSelectOption(key)}
                 className={`group relative flex items-center gap-4 rounded-2xl border-2 px-5 py-4 md:px-6 md:py-5 text-left transition-all duration-250 backdrop-blur-md ${
-                  !isRevealed
+                  !isRevealed && !isInteractionLocked
                     ? "hover:-translate-y-0.5 hover:brightness-110 cursor-pointer"
                     : "cursor-default"
                 } ${opacityClass}`}
@@ -828,17 +886,6 @@ export function McqStage() {
                 {isRevealed && isSelected && !isCorrect && (
                   <XCircle className="h-8 w-8 shrink-0 text-rose-300" />
                 )}
-                {!isRevealed && isSelected && (
-                  <span
-                    className="rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider shrink-0"
-                    style={{
-                      backgroundColor: `${settings.slogan_color}26`,
-                      color: settings.slogan_color,
-                    }}
-                  >
-                    Đã chọn
-                  </span>
-                )}
               </button>
             );
           })}
@@ -846,46 +893,38 @@ export function McqStage() {
 
         {/* Hộp giải thích đáp án */}
         {step === "revealed" && currentQuestion.explanation && (
-          <div className="animate-reveal-pop rounded-2xl border border-emerald-400/45 bg-emerald-950/75 px-6 py-4 backdrop-blur-md flex items-start gap-3.5 shrink-0">
-            <BookOpenCheck className="h-6 w-6 text-emerald-300 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <span className="text-xs font-bold uppercase tracking-widest text-emerald-300 block mb-0.5">
-                Giải thích đáp án {currentQuestion.correct_answer}
-              </span>
-              <p
-                className="text-base md:text-lg leading-relaxed text-emerald-50"
-                style={{ fontFamily: getFontCss(settings.body_font) }}
-              >
-                {currentQuestion.explanation}
-              </p>
-            </div>
+          <div className="animate-reveal-pop rounded-2xl border border-emerald-400/45 bg-emerald-950/75 px-6 py-4 backdrop-blur-md flex items-center gap-3.5 shrink-0">
+            <BookOpenCheck className="h-6 w-6 text-emerald-300 shrink-0" />
+            <p
+              className="text-base md:text-lg leading-relaxed text-emerald-50"
+              style={{ fontFamily: getFontCss(settings.body_font) }}
+            >
+              {currentQuestion.explanation}
+            </p>
           </div>
         )}
 
-        {/* Thanh điều khiển sân khấu cho MC / Kỹ thuật */}
-        <div className="flex items-center justify-between gap-3 pt-1 shrink-0 flex-wrap">
+        {/* Thanh điều khiển gọn */}
+        <div
+          className={`flex items-center justify-between gap-3 pt-1 shrink-0 transition-opacity ${
+            isInteractionLocked ? "pointer-events-none opacity-30" : ""
+          }`}
+        >
           <button
             type="button"
             onClick={handlePreviousQuestion}
-            disabled={currentIndex === 0}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/35 hover:bg-black/55 disabled:opacity-35 px-4 py-2.5 text-sm font-semibold backdrop-blur-md transition cursor-pointer"
+            disabled={currentIndex === 0 || isInteractionLocked}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/35 hover:bg-black/55 disabled:opacity-30 px-4 py-2.5 text-sm font-semibold backdrop-blur-md transition cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
-            Câu trước
+            Trước
           </button>
-
-          <div className="hidden lg:flex items-center gap-3 text-xs opacity-70">
-            <span>Phím 1-4 / A-D: Chọn đáp án</span>
-            <span>•</span>
-            <span>Enter: Tạm dừng giờ</span>
-            <span>•</span>
-            <span>Space / →: Bước tiếp</span>
-          </div>
 
           <button
             type="button"
             onClick={handleAdvanceStep}
-            className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm md:text-base font-extrabold text-slate-950 shadow-lg transition hover:brightness-110 cursor-pointer"
+            disabled={isInteractionLocked}
+            className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm md:text-base font-extrabold text-slate-950 shadow-lg transition hover:brightness-110 disabled:opacity-40 cursor-pointer"
             style={{
               backgroundColor:
                 step === "locked" || step === "running"

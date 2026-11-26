@@ -18,6 +18,7 @@ interface StageFrameProps {
   settings: ContestSettings;
   children: React.ReactNode;
   preview?: boolean;
+  locked?: boolean;
   topLeft?: React.ReactNode;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
@@ -32,6 +33,7 @@ export function StageFrame({
   settings,
   children,
   preview = false,
+  locked = false,
   topLeft,
   soundEnabled = true,
   onToggleSound,
@@ -102,19 +104,23 @@ export function StageFrame({
         }}
       />
 
-      {/* Thanh tiện ích nổi trên cùng (ẩn nút thừa khi ở chế độ Live Preview) */}
+      {/* Thanh tiện ích nổi gọn (chỉ dùng icon để không làm rối sân khấu LED) */}
       {!preview && (
-        <header className="relative z-30 flex items-center justify-between gap-3 px-6 pt-4 pb-2 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">{topLeft}</div>
+        <header
+          aria-hidden={locked || undefined}
+          className={`relative z-30 flex items-center justify-between gap-3 px-6 pt-3 pb-1 shrink-0 transition-opacity ${
+            locked ? "pointer-events-none opacity-25" : ""
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">{topLeft}</div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 opacity-60 hover:opacity-100 transition-opacity">
             {realtimeConnected && (
               <span
                 title="Đã kết nối Supabase Realtime"
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-2.5 py-1 text-xs font-medium text-emerald-300"
+                className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/30 border border-white/10"
               >
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
               </span>
             )}
 
@@ -122,11 +128,10 @@ export function StageFrame({
               <button
                 type="button"
                 onClick={onToggleShortcuts}
-                title="Hướng dẫn phím tắt bút trình chiếu"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition cursor-pointer"
+                title="Phím tắt bút trình chiếu"
+                className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/35 hover:bg-black/60 border border-white/15 text-white/90 backdrop-blur-md transition cursor-pointer"
               >
                 <Keyboard className="h-4 w-4" />
-                <span className="hidden md:inline">Phím tắt</span>
               </button>
             )}
 
@@ -135,10 +140,10 @@ export function StageFrame({
                 type="button"
                 onClick={onToggleSound}
                 title={soundEnabled ? "Tắt âm thanh" : "Bật âm thanh"}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium backdrop-blur-md transition cursor-pointer ${
+                className={`inline-flex items-center justify-center h-9 w-9 rounded-xl border backdrop-blur-md transition cursor-pointer ${
                   soundEnabled
-                    ? "bg-black/35 hover:bg-black/55 border-white/15 text-white/90"
-                    : "bg-rose-500/25 hover:bg-rose-500/35 border-rose-400/40 text-rose-200"
+                    ? "bg-black/35 hover:bg-black/60 border-white/15 text-white/90"
+                    : "bg-rose-500/30 hover:bg-rose-500/45 border-rose-400/40 text-rose-200"
                 }`}
               >
                 {soundEnabled ? (
@@ -146,9 +151,6 @@ export function StageFrame({
                 ) : (
                   <VolumeX className="h-4 w-4" />
                 )}
-                <span className="hidden md:inline">
-                  {soundEnabled ? "Âm thanh" : "Đã tắt tiếng"}
-                </span>
               </button>
             )}
 
@@ -157,26 +159,22 @@ export function StageFrame({
                 type="button"
                 onClick={onToggleFullscreen}
                 title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition cursor-pointer"
+                className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/35 hover:bg-black/60 border border-white/15 text-white/90 backdrop-blur-md transition cursor-pointer"
               >
                 {isFullscreen ? (
                   <Minimize2 className="h-4 w-4" />
                 ) : (
                   <Maximize2 className="h-4 w-4" />
                 )}
-                <span className="hidden lg:inline">
-                  {isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}
-                </span>
               </button>
             )}
 
             <Link
               href="/admin"
-              title="Trang quản trị cấu hình (/admin)"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-black/35 hover:bg-black/55 border border-white/15 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-md transition"
+              title="Trang quản trị (/admin)"
+              className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-black/35 hover:bg-black/60 border border-white/15 text-white/90 backdrop-blur-md transition"
             >
               <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Admin</span>
             </Link>
           </div>
         </header>
@@ -191,8 +189,28 @@ export function StageFrame({
         {children}
       </main>
 
+      {/* Lớp chắn ngăn mọi thao tác chuột/cảm ứng khi đang đếm ngược */}
+      {!preview && locked && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-40 cursor-not-allowed"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        />
+      )}
+
       {/* Modal hướng dẫn phím tắt bút trình chiếu */}
-      {!preview && showShortcuts && onToggleShortcuts && (
+      {!preview && !locked && showShortcuts && onToggleShortcuts && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
           onClick={onToggleShortcuts}
