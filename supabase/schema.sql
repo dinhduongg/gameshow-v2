@@ -83,10 +83,27 @@ create table if not exists public.scenarios (
 
 create index if not exists idx_scenarios_package_order on public.scenarios (package_name, order_index, id);
 
--- 4. CẤP QUYỀN BẢNG/SEQUENCE VÀ TẮT RLS CHO BẢN DEMO (ĐỌC / GHI CÔNG KHAI)
+-- 4. CẤP QUYỀN BẢNG/SEQUENCE, MỞ POLICY CÔNG KHAI & TẮT RLS CHO BẢN DEMO
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on table public.settings, public.mcqs, public.scenarios to anon, authenticated;
 grant usage, select on all sequences in schema public to anon, authenticated;
+
+-- Tạo sẵn policy công khai phòng trường hợp RLS được bật lại trên Dashboard
+drop policy if exists "Public full access settings" on public.settings;
+drop policy if exists "Public full access mcqs" on public.mcqs;
+drop policy if exists "Public full access scenarios" on public.scenarios;
+
+create policy "Public full access settings"
+on public.settings for all to anon, authenticated
+using (true) with check (true);
+
+create policy "Public full access mcqs"
+on public.mcqs for all to anon, authenticated
+using (true) with check (true);
+
+create policy "Public full access scenarios"
+on public.scenarios for all to anon, authenticated
+using (true) with check (true);
 
 alter table public.settings disable row level security;
 alter table public.mcqs disable row level security;

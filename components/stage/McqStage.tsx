@@ -30,6 +30,7 @@ import type { CorrectAnswerKey, McqStep } from "@/lib/types";
 import { useStage } from "./StageContext";
 import { StageFrame } from "./StageFrame";
 import { StageHeaderHero } from "./StageHeaderHero";
+import { StageTimerBox, setTimerRingProgress } from "./StageTimerBox";
 
 const OPTION_KEYS: CorrectAnswerKey[] = ["A", "B", "C", "D"];
 
@@ -63,7 +64,7 @@ export function McqStage() {
   const [timerRunning, setTimerRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const remainingMsRef = useRef<number | null>(null);
-  const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const timerRingRef = useRef<SVGRectElement | null>(null);
 
   const activePackage = useMemo(
     () => packages.find((pkg) => pkg.name === selectedPackageName) ?? null,
@@ -257,14 +258,13 @@ export function McqStage() {
     timeLeft,
   ]);
 
-  // Cập nhật vị trí thanh tiến độ khi không chạy (reset / tạm dừng / đổi câu)
+  // Cập nhật vòng tiến độ quanh ô đồng hồ khi không chạy (reset / tạm dừng / đổi câu)
   useEffect(() => {
-    if (timerRunning || !progressBarRef.current) return;
+    if (timerRunning) return;
     const totalMs = Math.max(1, settings.mcq_duration) * 1000;
     const currentMs =
       step === "question" ? totalMs : (remainingMsRef.current ?? totalMs);
-    const ratio = Math.max(0, Math.min(1, currentMs / totalMs));
-    progressBarRef.current.style.transform = `scaleX(${ratio})`;
+    setTimerRingProgress(timerRingRef.current, currentMs / totalMs);
   }, [activePackage, currentIndex, settings.mcq_duration, step, timerRunning]);
 
   // Đồng hồ đếm ngược 60fps bằng requestAnimationFrame + tích tắc 5 giây cuối
@@ -287,12 +287,7 @@ export function McqStage() {
       const nextMs = Math.max(0, (remainingMsRef.current ?? totalMs) - delta);
       remainingMsRef.current = nextMs;
 
-      if (progressBarRef.current) {
-        progressBarRef.current.style.transform = `scaleX(${Math.max(
-          0,
-          Math.min(1, nextMs / totalMs),
-        )})`;
-      }
+      setTimerRingProgress(timerRingRef.current, nextMs / totalMs);
 
       const nextSec = Math.ceil(nextMs / 1000);
       if (nextSec !== lastShownSecond) {
@@ -726,58 +721,15 @@ export function McqStage() {
               )}
             </button>
 
-            <div
-              className={`relative flex items-center gap-3 rounded-2xl border-2 px-5 py-2 backdrop-blur-md transition-colors ${
-                isUrgent ? "animate-urgent-timer" : ""
-              }`}
-              style={{
-                backgroundColor:
-                  isUrgent || isTimeUp
-                    ? "rgba(127, 29, 29, 0.82)"
-                    : `${settings.card_color}e6`,
-                borderColor:
-                  isUrgent || isTimeUp
-                    ? "#f87171"
-                    : timerRunning
-                      ? settings.accent_color
-                      : "rgba(255,255,255,0.22)",
-              }}
-            >
-              <Clock
-                className={`h-7 w-7 shrink-0 ${
-                  isUrgent || isTimeUp ? "text-red-300" : ""
-                }`}
-                style={
-                  isUrgent || isTimeUp
-                    ? undefined
-                    : { color: settings.accent_color }
-                }
-              />
-              <span
-                className="tabular-nums leading-none"
-                style={{
-                  fontFamily: getFontCss(settings.heading_font),
-                  fontSize: `${settings.timer_size}px`,
-                  fontWeight: settings.timer_weight,
-                  color: isUrgent || isTimeUp ? "#fecaca" : settings.text_color,
-                }}
-              >
-                {String(timeLeft).padStart(2, "0")}
-              </span>
-            </div>
+            <StageTimerBox
+              settings={settings}
+              displayText={String(timeLeft).padStart(2, "0")}
+              accentColor={settings.accent_color}
+              isUrgent={isUrgent}
+              isTimeUp={isTimeUp}
+              ringRef={timerRingRef}
+            />
           </div>
-        </div>
-
-        {/* Thanh tiến độ thời gian mượt 60fps */}
-        <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden shrink-0">
-          <div
-            ref={progressBarRef}
-            className="h-full w-full rounded-full origin-left will-change-transform transition-colors duration-200"
-            style={{
-              backgroundColor:
-                isUrgent || isTimeUp ? "#ef4444" : settings.accent_color,
-            }}
-          />
         </div>
 
         {/* Khung nội dung câu hỏi */}

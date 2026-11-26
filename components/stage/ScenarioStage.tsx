@@ -23,6 +23,7 @@ import { soundEngine } from "@/lib/sound";
 import { useStage } from "./StageContext";
 import { StageFrame } from "./StageFrame";
 import { StageHeaderHero } from "./StageHeaderHero";
+import { StageTimerBox, setTimerRingProgress } from "./StageTimerBox";
 
 function formatClock(totalSeconds: number): string {
   const safe = Math.max(0, totalSeconds);
@@ -58,7 +59,7 @@ export function ScenarioStage() {
   const [showGuide, setShowGuide] = useState(false);
   const [finished, setFinished] = useState(false);
   const remainingMsRef = useRef<number | null>(null);
-  const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const timerRingRef = useRef<SVGRectElement | null>(null);
 
   const activePackage = useMemo(
     () => packages.find((pkg) => pkg.name === selectedPackageName) ?? null,
@@ -134,13 +135,12 @@ export function ScenarioStage() {
     setTimerRunning((prev) => !prev);
   }, [isInteractionLocked, settings.scenario_duration, timeLeft]);
 
-  // Cập nhật vị trí thanh tiến độ khi không chạy (reset / tạm dừng / đổi tình huống)
+  // Cập nhật vòng tiến độ quanh ô đồng hồ khi không chạy (reset / tạm dừng / đổi tình huống)
   useEffect(() => {
-    if (timerRunning || !progressBarRef.current) return;
+    if (timerRunning) return;
     const totalMs = Math.max(1, settings.scenario_duration) * 1000;
     const currentMs = remainingMsRef.current ?? totalMs;
-    const ratio = Math.max(0, Math.min(1, currentMs / totalMs));
-    progressBarRef.current.style.transform = `scaleX(${ratio})`;
+    setTimerRingProgress(timerRingRef.current, currentMs / totalMs);
   }, [activePackage, currentIndex, displayedTime, settings.scenario_duration, timerRunning]);
 
   // Đồng hồ đếm ngược 60fps bằng requestAnimationFrame cho phần Tình huống
@@ -163,12 +163,7 @@ export function ScenarioStage() {
       const nextMs = Math.max(0, (remainingMsRef.current ?? totalMs) - delta);
       remainingMsRef.current = nextMs;
 
-      if (progressBarRef.current) {
-        progressBarRef.current.style.transform = `scaleX(${Math.max(
-          0,
-          Math.min(1, nextMs / totalMs)
-        )})`;
-      }
+      setTimerRingProgress(timerRingRef.current, nextMs / totalMs);
 
       const nextSec = Math.ceil(nextMs / 1000);
       if (nextSec !== lastShownSecond) {
@@ -582,59 +577,15 @@ export function ScenarioStage() {
               <RotateCcw className="h-5 w-5" />
             </button>
 
-            <div
-              className={`flex items-center gap-3 rounded-2xl border-2 px-5 py-2 backdrop-blur-md ${
-                isUrgent ? "animate-urgent-timer" : ""
-              }`}
-              style={{
-                backgroundColor:
-                  isUrgent || isTimeUp
-                    ? "rgba(127, 29, 29, 0.85)"
-                    : `${settings.card_color}e6`,
-                borderColor:
-                  isUrgent || isTimeUp
-                    ? "#f87171"
-                    : timerRunning
-                    ? settings.slogan_color
-                    : "rgba(255,255,255,0.22)",
-              }}
-            >
-              <Clock
-                className={`h-7 w-7 ${
-                  isUrgent || isTimeUp ? "text-red-300" : ""
-                }`}
-                style={
-                  isUrgent || isTimeUp
-                    ? undefined
-                    : { color: settings.slogan_color }
-                }
-              />
-              <span
-                className="tabular-nums leading-none"
-                style={{
-                  fontFamily: getFontCss(settings.heading_font),
-                  fontSize: `${settings.timer_size}px`,
-                  fontWeight: settings.timer_weight,
-                  color:
-                    isUrgent || isTimeUp ? "#fecaca" : settings.text_color,
-                }}
-              >
-                {formatClock(timeLeft)}
-              </span>
-            </div>
+            <StageTimerBox
+              settings={settings}
+              displayText={formatClock(timeLeft)}
+              accentColor={settings.slogan_color}
+              isUrgent={isUrgent}
+              isTimeUp={isTimeUp}
+              ringRef={timerRingRef}
+            />
           </div>
-        </div>
-
-        {/* Thanh tiến độ thời gian mượt 60fps */}
-        <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden shrink-0">
-          <div
-            ref={progressBarRef}
-            className="h-full w-full rounded-full origin-left will-change-transform transition-colors duration-200"
-            style={{
-              backgroundColor:
-                isUrgent || isTimeUp ? "#ef4444" : settings.slogan_color,
-            }}
-          />
         </div>
 
         {/* Khung đề bài tình huống lớn rõ nét */}

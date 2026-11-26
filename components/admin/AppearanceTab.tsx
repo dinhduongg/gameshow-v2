@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   ClipboardCheck,
-  Clock,
   Image as ImageIcon,
   ListChecks,
   Loader2,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 import { StageFrame } from "@/components/stage/StageFrame";
 import { StageHeaderHero } from "@/components/stage/StageHeaderHero";
+import { StageTimerBox } from "@/components/stage/StageTimerBox";
 import {
   DEFAULT_SETTINGS,
   FONT_OPTIONS,
@@ -219,29 +219,11 @@ function StageLivePreview({
                   </span>
                 </div>
 
-                <div
-                  className="flex items-center gap-3 rounded-2xl border-2 px-5 py-2"
-                  style={{
-                    backgroundColor: `${settings.card_color}e6`,
-                    borderColor: settings.accent_color,
-                  }}
-                >
-                  <Clock
-                    className="h-7 w-7"
-                    style={{ color: settings.accent_color }}
-                  />
-                  <span
-                    className="tabular-nums leading-none"
-                    style={{
-                      fontFamily: getFontCss(settings.heading_font),
-                      fontSize: `${settings.timer_size}px`,
-                      fontWeight: settings.timer_weight,
-                      color: settings.text_color,
-                    }}
-                  >
-                    {String(settings.mcq_duration).padStart(2, "0")}
-                  </span>
-                </div>
+                <StageTimerBox
+                  settings={settings}
+                  displayText={String(settings.mcq_duration).padStart(2, "0")}
+                  accentColor={settings.accent_color}
+                />
               </div>
 
               <div
@@ -334,33 +316,15 @@ function StageLivePreview({
                   </span>
                 </div>
 
-                <div
-                  className="flex items-center gap-3 rounded-2xl border-2 px-5 py-2"
-                  style={{
-                    backgroundColor: `${settings.card_color}e6`,
-                    borderColor: settings.slogan_color,
-                  }}
-                >
-                  <Clock
-                    className="h-7 w-7"
-                    style={{ color: settings.slogan_color }}
-                  />
-                  <span
-                    className="tabular-nums leading-none"
-                    style={{
-                      fontFamily: getFontCss(settings.heading_font),
-                      fontSize: `${settings.timer_size}px`,
-                      fontWeight: settings.timer_weight,
-                      color: settings.text_color,
-                    }}
-                  >
-                    {`${String(
-                      Math.floor(settings.scenario_duration / 60),
-                    ).padStart(2, "0")}:${String(
-                      settings.scenario_duration % 60,
-                    ).padStart(2, "0")}`}
-                  </span>
-                </div>
+                <StageTimerBox
+                  settings={settings}
+                  displayText={`${String(
+                    Math.floor(settings.scenario_duration / 60),
+                  ).padStart(2, "0")}:${String(
+                    settings.scenario_duration % 60,
+                  ).padStart(2, "0")}`}
+                  accentColor={settings.slogan_color}
+                />
               </div>
 
               <div
