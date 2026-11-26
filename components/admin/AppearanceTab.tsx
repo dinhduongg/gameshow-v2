@@ -19,7 +19,12 @@ import {
 } from "lucide-react";
 import { StageFrame } from "@/components/stage/StageFrame";
 import { StageHeaderHero } from "@/components/stage/StageHeaderHero";
-import { DEFAULT_SETTINGS, FONT_OPTIONS, getFontCss } from "@/lib/defaults";
+import {
+  DEFAULT_SETTINGS,
+  FONT_OPTIONS,
+  THEME_PRESETS,
+  getFontCss,
+} from "@/lib/defaults";
 import { deleteContestAssetByUrl, uploadContestAsset } from "@/lib/supabase";
 import type { ContestSettings, FontFamilyName } from "@/lib/types";
 
@@ -773,40 +778,126 @@ export function AppearanceTab({
           </div>
         </section>
 
-        {/* 2. Tùy chỉnh Màu sắc */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-4">
-          <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-            <Palette className="h-5 w-5 text-amber-400" />
-            <h2 className="text-base font-bold text-white">
-              Bảng màu sân khấu (Color Picker)
-            </h2>
+        {/* 2. Bộ Theme màu gợi ý & Tùy chỉnh Màu sắc */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-5">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Palette className="h-5 w-5 text-amber-400" />
+              <h2 className="text-base font-bold text-white">
+                Bộ Theme màu gợi ý &amp; Bảng màu sân khấu
+              </h2>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              Lưu trực tiếp vào Supabase
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {colorFields.map(({ key, label }) => (
-              <div
-                key={key}
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2.5"
-              >
-                <span className="text-xs font-semibold text-slate-200">
-                  {label}
-                </span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={draft[key]}
-                    onChange={(e) => onChange({ [key]: e.target.value })}
-                    className="h-8 w-10 rounded-lg border border-slate-700 bg-transparent cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={draft[key]}
-                    onChange={(e) => onChange({ [key]: e.target.value })}
-                    className="w-20 rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 font-mono text-xs text-slate-200 uppercase"
-                  />
+          {/* Bộ Theme gợi ý chọn nhanh 1 chạm */}
+          <div className="space-y-2.5">
+            <p className="text-xs text-slate-400">
+              Chọn nhanh 1 bộ màu bên dưới để xem trước tức thì, sau đó bấm{" "}
+              <strong className="text-slate-200">Lưu cấu hình</strong> để lưu
+              vào bảng <code className="font-mono">settings</code> trên Supabase
+              và đồng bộ Realtime lên sân khấu.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {THEME_PRESETS.map((preset) => {
+                const isActive =
+                  draft.bg_color.toLowerCase() ===
+                    preset.bg_color.toLowerCase() &&
+                  draft.card_color.toLowerCase() ===
+                    preset.card_color.toLowerCase() &&
+                  draft.accent_color.toLowerCase() ===
+                    preset.accent_color.toLowerCase() &&
+                  draft.slogan_color.toLowerCase() ===
+                    preset.slogan_color.toLowerCase();
+
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        bg_color: preset.bg_color,
+                        card_color: preset.card_color,
+                        text_color: preset.text_color,
+                        slogan_color: preset.slogan_color,
+                        accent_color: preset.accent_color,
+                        overlay_opacity: preset.overlay_opacity,
+                      })
+                    }
+                    className={`group rounded-xl border p-3 text-left transition cursor-pointer flex items-center justify-between gap-3 ${
+                      isActive
+                        ? "border-sky-400 bg-sky-500/15 shadow-md"
+                        : "border-slate-800 bg-slate-950/70 hover:border-slate-600 hover:bg-slate-900"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-white truncate">
+                          {preset.name}
+                        </span>
+                        {isActive && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-400 block truncate mt-0.5">
+                        {preset.vibe}
+                      </span>
+                    </div>
+
+                    {/* 5 ô màu xem trước */}
+                    <div className="flex items-center -space-x-1 shrink-0">
+                      {[
+                        preset.bg_color,
+                        preset.card_color,
+                        preset.accent_color,
+                        preset.slogan_color,
+                        preset.text_color,
+                      ].map((hex, i) => (
+                        <span
+                          key={i}
+                          className="h-5 w-5 rounded-full border border-white/25 shadow-sm"
+                          style={{ backgroundColor: hex }}
+                        />
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-800 pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+              Tinh chỉnh chi tiết từng màu (Color Picker)
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {colorFields.map(({ key, label }) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2.5"
+                >
+                  <span className="text-xs font-semibold text-slate-200">
+                    {label}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={draft[key]}
+                      onChange={(e) => onChange({ [key]: e.target.value })}
+                      className="h-8 w-10 rounded-lg border border-slate-700 bg-transparent cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={draft[key]}
+                      onChange={(e) => onChange({ [key]: e.target.value })}
+                      className="w-20 rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 font-mono text-xs text-slate-200 uppercase"
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 

@@ -11,7 +11,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import { getFontCss } from "@/lib/defaults";
+import { getFontCss, isLightHexColor } from "@/lib/defaults";
 import type { ContestSettings } from "@/lib/types";
 
 interface StageFrameProps {
@@ -46,6 +46,7 @@ export function StageFrame({
   const hasBgImage =
     settings.background_mode === "image" && Boolean(settings.background_url);
   const overlayAlpha = Math.min(85, Math.max(0, settings.overlay_opacity)) / 100;
+  const isLightTheme = !hasBgImage && isLightHexColor(settings.bg_color);
 
   return (
     <div
@@ -58,7 +59,7 @@ export function StageFrame({
         fontFamily: getFontCss(settings.body_font),
       }}
     >
-      {/* Lớp nền ảnh hoặc Gradient công nghệ mặc định */}
+      {/* Lớp nền ảnh hoặc Gradient sân khấu tự thích ứng tông tối/sáng */}
       {hasBgImage ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -76,23 +77,32 @@ export function StageFrame({
         </>
       ) : (
         <>
+          {/* Nền trường quay truyền hình VTV (đèn spotlight trung tâm & viền sân khấu) */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              background: `radial-gradient(circle at 18% 18%, ${settings.accent_color}38 0%, transparent 48%), radial-gradient(circle at 82% 82%, ${settings.slogan_color}28 0%, transparent 48%), linear-gradient(135deg, ${settings.bg_color} 0%, #020817 100%)`,
+              background: isLightTheme
+                ? `radial-gradient(ellipse at 50% 0%, ${settings.accent_color}18 0%, transparent 60%), radial-gradient(circle at 85% 90%, ${settings.slogan_color}18 0%, transparent 45%), linear-gradient(180deg, ${settings.bg_color} 0%, #e2e8f0 100%)`
+                : `radial-gradient(ellipse 85% 55% at 50% 0%, color-mix(in srgb, ${settings.card_color} 95%, #ffffff 12%) 0%, transparent 68%), radial-gradient(circle at 14% 85%, ${settings.accent_color}26 0%, transparent 45%), radial-gradient(circle at 86% 85%, ${settings.slogan_color}20 0%, transparent 45%), linear-gradient(180deg, ${settings.bg_color} 0%, color-mix(in srgb, ${settings.bg_color} 52%, #000000) 100%)`,
             }}
           />
-          <div className="stage-grid-overlay absolute inset-0 pointer-events-none opacity-65" />
+          {/* Luồng đèn chiếu trường quay nhẹ từ trên đỉnh */}
           <div
-            className="animate-stage-glow absolute -top-24 left-1/2 -translate-x-1/2 h-72 w-[62%] rounded-full blur-3xl pointer-events-none"
-            style={{ backgroundColor: `${settings.accent_color}26` }}
-          />
-          <div
-            className="absolute inset-0 pointer-events-none"
+            className="animate-stage-glow absolute -top-28 left-1/2 -translate-x-1/2 h-80 w-[72%] rounded-full blur-3xl pointer-events-none"
             style={{
-              backgroundColor: `rgba(0, 0, 0, ${overlayAlpha * 0.45})`,
+              backgroundColor: isLightTheme
+                ? `${settings.accent_color}14`
+                : `${settings.slogan_color}18`,
             }}
           />
+          {overlayAlpha > 0 && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundColor: `rgba(0, 0, 0, ${overlayAlpha * 0.45})`,
+              }}
+            />
+          )}
         </>
       )}
 

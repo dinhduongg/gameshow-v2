@@ -45,6 +45,119 @@ export function getFontCss(fontName: FontFamilyName): string {
     : "var(--font-be-vietnam-pro), system-ui, sans-serif";
 }
 
+export interface ColorThemePreset {
+  id: string;
+  name: string;
+  vibe: string;
+  bg_color: string;
+  card_color: string;
+  text_color: string;
+  slogan_color: string;
+  accent_color: string;
+  overlay_opacity: number;
+}
+
+export const THEME_PRESETS: ColorThemePreset[] = [
+  {
+    id: "tech-neon-default",
+    name: "Xanh Công Nghệ (Mặc định)",
+    vibe: "Tông neon công nghệ ban đầu của dự án",
+    bg_color: "#061326",
+    card_color: "#0e2444",
+    text_color: "#f8fafc",
+    slogan_color: "#fbbf24",
+    accent_color: "#38bdf8",
+    overlay_opacity: 45,
+  },
+  {
+    id: "vtv-olympia",
+    name: "Đường Lên Đỉnh Olympia (VTV3)",
+    vibe: "Xanh hoàng gia & vàng ánh kim kinh điển",
+    bg_color: "#0b2259",
+    card_color: "#143785",
+    text_color: "#ffffff",
+    slogan_color: "#ffd43b",
+    accent_color: "#f59e0b",
+    overlay_opacity: 20,
+  },
+  {
+    id: "vtv-trieu-phu",
+    name: "Ai Là Triệu Phú (VTV3)",
+    vibe: "Xanh đêm sâu trường quay & cam vàng đồng",
+    bg_color: "#060e33",
+    card_color: "#0f2167",
+    text_color: "#ffffff",
+    slogan_color: "#fbbf24",
+    accent_color: "#f97316",
+    overlay_opacity: 25,
+  },
+  {
+    id: "vtv-rung-chuong-vang",
+    name: "Rung Chuông Vàng (VTV3)",
+    vibe: "Đỏ đô lễ hội & vàng rực rỡ hội trường",
+    bg_color: "#4a0816",
+    card_color: "#731024",
+    text_color: "#fffdf5",
+    slogan_color: "#facc15",
+    accent_color: "#f59e0b",
+    overlay_opacity: 20,
+  },
+  {
+    id: "vtv-o-nha-chu-nhat",
+    name: "Ở Nhà Chủ Nhật (VTV3 Gia đình)",
+    vibe: "Xanh cổ vịt ấm áp & cam nắng cuối tuần",
+    bg_color: "#0b3545",
+    card_color: "#134e63",
+    text_color: "#ffffff",
+    slogan_color: "#fde047",
+    accent_color: "#fb923c",
+    overlay_opacity: 18,
+  },
+  {
+    id: "vtv-chiec-non-ky-dieu",
+    name: "Chiếc Nón Kỳ Diệu (VTV3)",
+    vibe: "Tím hoàng gia sân khấu & vàng kim rực sáng",
+    bg_color: "#22104d",
+    card_color: "#361b75",
+    text_color: "#ffffff",
+    slogan_color: "#facc15",
+    accent_color: "#f59e0b",
+    overlay_opacity: 22,
+  },
+  {
+    id: "vtv-gala-vtv1",
+    name: "Gala Trường Quay VTV1",
+    vibe: "Xanh navy trang trọng, vàng đồng & đỏ cờ",
+    bg_color: "#0d1b38",
+    card_color: "#19305c",
+    text_color: "#f8fafc",
+    slogan_color: "#eab308",
+    accent_color: "#dc2626",
+    overlay_opacity: 22,
+  },
+  {
+    id: "vtv-daylight",
+    name: "Hội Nghị Ban Ngày (Nền Sáng)",
+    vibe: "Trắng kem thanh lịch, xanh VTV & vàng đồng",
+    bg_color: "#f2f5fb",
+    card_color: "#ffffff",
+    text_color: "#0f172a",
+    slogan_color: "#b45309",
+    accent_color: "#1d4ed8",
+    overlay_opacity: 0,
+  },
+];
+
+export function isLightHexColor(hex: string): boolean {
+  const cleaned = hex.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) return false;
+  const r = parseInt(cleaned.slice(0, 2), 16) / 255;
+  const g = parseInt(cleaned.slice(2, 4), 16) / 255;
+  const b = parseInt(cleaned.slice(4, 6), 16) / 255;
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 0.58;
+}
+
 export const DEFAULT_SETTINGS: ContestSettings = {
   id: 1,
   org_name: "BAN TỔ CHỨC NGÀY HỘI CHUYỂN ĐỔI SỐ",

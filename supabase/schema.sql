@@ -16,7 +16,7 @@ create table if not exists public.settings (
   background_url text,
   overlay_opacity integer not null default 45 check (overlay_opacity >= 0 and overlay_opacity <= 85),
 
-  -- Màu sắc
+  -- Màu sắc (mặc định Xanh Công Nghệ Neon)
   bg_color text not null default '#061326',
   card_color text not null default '#0e2444',
   text_color text not null default '#f8fafc',
